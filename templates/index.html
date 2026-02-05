@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PromptSwitcher MVP</title>
+    <style>
+  body { font-family: Arial, sans-serif; margin: 32px; max-width: 980px; }
+  textarea { width: 100%; padding: 10px; font-size: 16px; }
+  .row { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+  .label { font-weight: bold; }
+  .box { border: 1px solid #ddd; padding: 12px; margin: 10px 0; white-space: pre-wrap; background: #fafafa; }
+
+  /* Unified button look for both <button> and <a> */
+  .btn {
+    display: inline-block;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #111;
+    text-decoration: none;
+    border-radius: 6px;
+    user-select: none;
+  }
+  .btn:hover { background: #f3f3f3; }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .topbar { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+  #btn { padding: 10px 16px; font-size: 16px; }
+  .small { color:#666; font-size:13px; margin-top:6px; min-height: 16px; }
+  a {
+  color: #111;          /* same dark color as text */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+</style>
+
+  </head>
+  <body>
+    <h1>PromptSwitcher MVP</h1>
+
+    <div class="topbar">
+      <button id="btn">Generate</button>
+      <div class="small" id="status"></div>
+    </div>
+
+    <div class="label">Your idea (any language):</div>
+    <textarea id="idea" rows="4" placeholder="Type your idea..."></textarea>
+
+    <h2>Results</h2>
+
+    <div class="row">
+      <div class="label">Clean English:</div>
+      <div class="actions">
+        <button onclick="copyFrom('english')">Copy</button>
+      </div>
+    </div>
+    <div id="english" class="box">(nothing yet)</div>
+
+    <div class="row">
+      <div class="label">Midjourney:</div>
+      <div class="actions">
+        <button onclick="copyFrom('midjourney')">Copy</button>
+        <a href="https://www.midjourney.com" target="_blank" rel="noopener noreferrer">Open Midjourney</a>
+      </div>
+    </div>
+    <div id="midjourney" class="box">(nothing yet)</div>
+
+    <div class="row">
+      <div class="label">Leonardo:</div>
+      <div class="actions">
+        <button onclick="copyFrom('leonardo')">Copy</button>
+        <a href="https://leonardo.ai" target="_blank" rel="noopener noreferrer">Open Leonardo</a>
+      </div>
+    </div>
+    <div id="leonardo" class="box">(nothing yet)</div>
+
+    <div class="row">
+      <div class="label">DALL·E:</div>
+      <div class="actions">
+        <button onclick="copyFrom('dalle')">Copy</button>
+        <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">Open DALL·E</a>
+      </div>
+    </div>
+    <div id="dalle" class="box">(nothing yet)</div>
+
+    <div class="row">
+      <div class="label">Ideogram:</div>
+      <div class="actions">
+        <button onclick="copyFrom('ideogram')">Copy</button>
+        <a href="https://ideogram.ai" target="_blank" rel="noopener noreferrer">Open Ideogram</a>
+      </div>
+    </div>
+    <div id="ideogram" class="box">(nothing yet)</div>
+
+    <div class="row">
+      <div class="label">Firefly:</div>
+      <div class="actions">
+        <button onclick="copyFrom('firefly')">Copy</button>
+        <a href="https://firefly.adobe.com" target="_blank" rel="noopener noreferrer">Open Firefly</a>
+      </div>
+    </div>
+    <div id="firefly" class="box">(nothing yet)</div>
+
+    <script>
+      const btn = document.getElementById("btn");
+      const ideaEl = document.getElementById("idea");
+      const statusEl = document.getElementById("status");
+
+      const englishEl = document.getElementById("english");
+      const mjEl = document.getElementById("midjourney");
+      const leoEl = document.getElementById("leonardo");
+      const dalleEl = document.getElementById("dalle");
+      const ideoEl = document.getElementById("ideogram");
+      const ffEl = document.getElementById("firefly");
+
+      function setAll(text) {
+        englishEl.textContent = text;
+        mjEl.textContent = text;
+        leoEl.textContent = text;
+        dalleEl.textContent = text;
+        ideoEl.textContent = text;
+        ffEl.textContent = text;
+      }
+
+      async function copyFrom(id) {
+        const el = document.getElementById(id);
+        const text = (el?.textContent || "").trim();
+        if (!text || text === "(nothing yet)") {
+          alert("Nothing to copy yet.");
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(text);
+          statusEl.textContent = "Copied ✅";
+          setTimeout(() => (statusEl.textContent = ""), 1200);
+        } catch (e) {
+          alert("Copy failed. Try selecting the text and copying manually.");
+        }
+      }
+      window.copyFrom = copyFrom;
+
+      btn.addEventListener("click", async () => {
+        const idea = ideaEl.value.trim();
+        if (!idea) {
+          alert("Type an idea first.");
+          return;
+        }
+
+        btn.disabled = true;
+        statusEl.textContent = "Working...";
+        setAll("Working...");
+
+        try {
+          const res = await fetch("/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idea })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            englishEl.textContent = data.error || "Server error";
+            statusEl.textContent = "Error";
+            return;
+          }
+
+          englishEl.textContent = data.english || "";
+          mjEl.textContent = data.midjourney || "";
+          leoEl.textContent = data.leonardo || "";
+          dalleEl.textContent = data.dalle || "";
+          ideoEl.textContent = data.ideogram || "";
+          ffEl.textContent = data.firefly || "";
+          statusEl.textContent = "Done ✅";
+          setTimeout(() => (statusEl.textContent = ""), 1200);
+
+        } catch (e) {
+          englishEl.textContent = "Network error. Check terminal.";
+          statusEl.textContent = "Network error";
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
