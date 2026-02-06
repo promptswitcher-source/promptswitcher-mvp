@@ -1,9 +1,12 @@
 import os
 import json
+import time
+from hashlib import sha256
 
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
+
 
 load_dotenv()
 
@@ -11,6 +14,8 @@ app = Flask(__name__)
 
 # Reads OPENAI_API_KEY from .env
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+CACHE = {}         # {cache_key: (timestamp, parsed_dict)}
+CACHE_TTL = 300    # seconds (5 minutes)
 
 SYSTEM = """
 You are PromptSwitcher.
@@ -77,27 +82,43 @@ def generate():
     if not idea:
         return jsonify({"error": "No idea provided"}), 400
 
+    # ---- CACHE (5 min) ----
+    cache_key = sha256(idea.encode("utf-8")).hexdigest()
+    now = time.time()
+
+    if cache_key in CACHE:
+        ts, cached = CACHE[cache_key]
+        if now - ts < CACHE_TTL:
+            return jsonify(cached)
+        else:
+            del CACHE[cache_key]
+    # -----------------------
+
     try:
         resp = client.responses.create(
             model="gpt-5-mini",
-            reasoning={"effort": "low"},      # speeds up + helps avoid “empty output_text”
-            instructions=SYSTEM,              # recommended way to provide “system rules”
+            reasoning={"effort": "low"},
+            instructions=SYSTEM,
             input=f"User idea: {idea}",
-            max_output_tokens=1200,
+            max_output_tokens=800,
         )
 
         text = _extract_text(resp)
         if not text:
-            # Print something useful in terminal without crashing the app
             print("OPENAI ERROR: No text returned. Raw output:", resp.output)
             return jsonify({"error": "OpenAI returned no text output"}), 500
 
         parsed = json.loads(text)
+
+        # Store successful result in cache
+        CACHE[cache_key] = (time.time(), parsed)
+
         return jsonify(parsed)
 
     except Exception as e:
         print("OPENAI/JSON ERROR:", repr(e))
         return jsonify({"error": "OpenAI failed"}), 500
+
 
 
 if __name__ == "__main__":
