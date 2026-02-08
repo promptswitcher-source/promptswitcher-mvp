@@ -101,7 +101,9 @@ def generate():
             instructions=SYSTEM,
             input=f"User idea: {idea}",
             max_output_tokens=800,
-        )
+           response_format={"type": "json_object"},
+ 
+      )
 
         text = _extract_text(resp)
         if not text:
