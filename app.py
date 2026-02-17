@@ -10,7 +10,7 @@ from openai import OpenAI
 
 
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
-print("ENV KEY FOUND?", bool(os.getenv("OPENAI_API_KEY")))
+
 
 
 app = Flask(__name__)
